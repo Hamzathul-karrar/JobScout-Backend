@@ -3,6 +3,7 @@ package com.hamza.JobScout.Controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,23 +23,13 @@ public class JobSearchController {
     }
     
     
-    @GetMapping("/nope")
-    public ResponseEntity<List<JobResult>> gsearchJobsGoogle(@RequestParam String jobTitle,
-    	    @RequestParam String location) {
-        List<JobResult> results = jobSearchService.searchJobsGoogle(jobTitle, location);
-        return ResponseEntity.ok(results);
-    }
-    
+    @CrossOrigin(origins = "http://localhost:5173")
     @GetMapping
     public ResponseEntity<List<JobResult>> searchJobsGoogle(
         @RequestParam String jobTitle,
         @RequestParam String location) {
         
-        // Add logging to see what parameters are received
-        System.out.println("Received jobTitle: '" + jobTitle + "'");
-        System.out.println("Received location: '" + location + "'");
-        
-        List<JobResult> results = jobSearchService.searchJobsGoogle(jobTitle, location);
+        List<JobResult> results = jobSearchService.searchJobs(jobTitle, location);
         return ResponseEntity.ok(results);
     }
 
