@@ -1,7 +1,8 @@
-package com.hamza.JobScout.Service;
+package com.hamza.JobScout.service;
 
-import com.hamza.JobScout.Model.JobResult;
-import com.hamza.JobScout.Repository.JobResultRepository;
+import com.hamza.JobScout.entity.JobResult;
+import com.hamza.JobScout.repository.JobResultRepository;
+
 import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;

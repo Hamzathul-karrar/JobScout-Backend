@@ -1,12 +1,15 @@
-package com.hamza.JobScout.Service;
+package com.hamza.JobScout.service;
 
-import com.hamza.JobScout.Model.JobResult;
-import com.hamza.JobScout.Repository.JobResultRepository;
+import com.hamza.JobScout.entity.JobResult;
+import com.hamza.JobScout.repository.JobResultRepository;
+
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class JobSearchService {
@@ -24,8 +27,8 @@ public class JobSearchService {
     }
     
     public List<JobResult> searchJobs(String jobTitle, String location) {
-    	jobTitle = jobTitle.toLowerCase().trim();
-    	location = location.toLowerCase().trim();
+        jobTitle = jobTitle.toLowerCase().trim();
+        location = location.toLowerCase().trim();
         System.out.println("Starting job search for: " + jobTitle + " in " + location);
         
         // Step 1: Query DB for existing jobs
@@ -48,9 +51,10 @@ public class JobSearchService {
         // Step 4: Process and save new jobs (deduplication handled in processor)
         List<JobResult> newJobs = jobResultProcessor.processAndSaveResults(serpApiResponses, jobTitle, location);
         
-        // Step 5: Get all jobs (existing + new) and return
-        List<JobResult> allJobs = jobResultRepository.findByJobTitleAndLocationOrderByAddedDateDesc(
-            jobTitle, location);
+        // Step 5: Combine existing and new jobs, then sort by addedDate (desc)
+        List<JobResult> allJobs = Stream.concat(existingJobs.stream(), newJobs.stream())
+                .sorted((job1, job2) -> job2.getAddedDate().compareTo(job1.getAddedDate())) // Sort desc
+                .collect(Collectors.toList());
         
         System.out.println("Returning " + allJobs.size() + " total jobs (" + newJobs.size() + " new)");
         return allJobs;
@@ -92,5 +96,4 @@ public class JobSearchService {
             return "qdr:m";
         }
     }
-    
-   }
+}

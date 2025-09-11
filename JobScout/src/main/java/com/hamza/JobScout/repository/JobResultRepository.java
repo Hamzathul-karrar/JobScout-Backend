@@ -1,9 +1,10 @@
-package com.hamza.JobScout.Repository;
+package com.hamza.JobScout.repository;
 
 
-import com.hamza.JobScout.Model.JobResult;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.hamza.JobScout.entity.JobResult;
 
 import java.time.LocalDate;
 import java.util.List;

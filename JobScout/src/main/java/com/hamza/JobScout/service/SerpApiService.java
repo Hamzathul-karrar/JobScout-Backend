@@ -1,4 +1,4 @@
-package com.hamza.JobScout.Service;
+package com.hamza.JobScout.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

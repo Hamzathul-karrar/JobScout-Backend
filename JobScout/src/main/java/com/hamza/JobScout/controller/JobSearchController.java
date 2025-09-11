@@ -1,4 +1,4 @@
-package com.hamza.JobScout.Controller;
+package com.hamza.JobScout.controller;
 
 import java.util.List;
 
@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.hamza.JobScout.Model.JobResult;
-import com.hamza.JobScout.Service.JobSearchService;
+import com.hamza.JobScout.entity.JobResult;
+import com.hamza.JobScout.service.JobSearchService;
 
 @RestController
 @RequestMapping("/searchJob")
@@ -23,7 +23,7 @@ public class JobSearchController {
     }
     
     
-    @CrossOrigin(origins = "http://localhost:5173")
+    @CrossOrigin(origins = "*")
     @GetMapping
     public ResponseEntity<List<JobResult>> searchJobsGoogle(
         @RequestParam String jobTitle,
