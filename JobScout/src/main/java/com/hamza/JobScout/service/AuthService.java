@@ -7,6 +7,7 @@ import com.hamza.JobScout.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Optional;
 
 @Service
@@ -22,25 +23,23 @@ public class AuthService {
     @Autowired
     private UserValidator userValidator;
 
+    @Autowired
+    private JwtService jwtService;
+
     public void register(RegisterRequest registerRequest) {
         try {
-        	// Validate and sanitize inputs - capture the sanitized values
-        	String sanitizedEmail = userValidator.validateAndSanitizeEmail(registerRequest.getEmail());
-
-        	// Check if user already exists using sanitized email
-            if (userService.userExists(sanitizedEmail)) {
-            	throw new IllegalArgumentException("User with this email already exists");
-            }
+            String sanitizedEmail = userValidator.validateAndSanitizeEmail(registerRequest.getEmail());
             
+            if (userService.userExists(sanitizedEmail)) {
+                throw new IllegalArgumentException("User with this email already exists");
+            }
+
             String sanitizedFullName = userValidator.validateAndSanitizeFullName(registerRequest.getFullName());
             String validatedPassword = userValidator.validatePassword(registerRequest.getPassword());
             String sanitizedSerpapiKey = userValidator.validateAndSanitizeSerpapiKey(registerRequest.getSerpapiKey());
 
-
-            // Create user with sanitized values
             String encodedPassword = passwordService.encodePassword(validatedPassword);
             userService.createUser(sanitizedFullName, sanitizedEmail, encodedPassword, sanitizedSerpapiKey);
-
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
@@ -51,7 +50,6 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest loginRequest) {
         try {
-            // Validate and sanitize login inputs
             String sanitizedEmail = userValidator.validateLoginEmail(loginRequest.getEmail());
             String validatedPassword = userValidator.validateLoginPassword(loginRequest.getPassword());
 
@@ -66,10 +64,21 @@ public class AuthService {
             }
 
             userService.updateLastLogin(user);
-            return new AuthResponse(user.getId(), user.getFullName(), user.getEmail(), "Login successful");
 
+            // Generate JWT token
+            String token = jwtService.generateToken(user.getEmail(), user.getId());
+            long expirationTime = jwtService.getExpirationTime();
+
+            return new AuthResponse(
+                user.getId(), 
+                user.getFullName(), 
+                user.getEmail(), 
+                "Login successful",
+                token,
+                expirationTime
+            );
         } catch (IllegalArgumentException e) {
-            throw e; // Don't expose validation details
+            throw e;
         } catch (Exception e) {
             System.err.println("Login error: " + e.getMessage());
             throw new RuntimeException("Login failed. Please try again.");
