@@ -59,7 +59,7 @@ public class UserValidator {
         
         // Basic validation for SerpApi key format (they are typically alphanumeric)
         if (sanitized.length() < 10 || sanitized.length() > 100) {
-            throw new IllegalArgumentException("SerpApi key appears to be invalid (length should be between 10-100 characters)");
+            throw new IllegalArgumentException("SerpApi key appears to be invalid");
         }
         
         // Check if it contains only valid characters (letters, numbers, underscores, hyphens)

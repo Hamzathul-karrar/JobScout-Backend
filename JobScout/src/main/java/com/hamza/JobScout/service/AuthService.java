@@ -57,19 +57,19 @@ public class AuthService {
 
             Optional<User> userOptional = userService.findByEmail(sanitizedEmail);
             if (userOptional.isEmpty()) {
-                throw new RuntimeException("Invalid email or password");
+                throw new IllegalArgumentException("Invalid email or password");
             }
 
             User user = userOptional.get();
             if (!passwordService.matches(validatedPassword, user.getPassword())) {
-                throw new RuntimeException("Invalid email or password");
+                throw new IllegalArgumentException("Invalid email or password");
             }
 
             userService.updateLastLogin(user);
             return new AuthResponse(user.getId(), user.getFullName(), user.getEmail(), "Login successful");
 
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Invalid email or password"); // Don't expose validation details
+            throw e; // Don't expose validation details
         } catch (Exception e) {
             System.err.println("Login error: " + e.getMessage());
             throw new RuntimeException("Login failed. Please try again.");

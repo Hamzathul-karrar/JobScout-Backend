@@ -38,7 +38,7 @@ public class AuthController {
             return ResponseEntity.ok(authResponse);
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                    .body(new ApiResponse("Login failed: " + e.getMessage(), false));
+                    .body(new ApiResponse(e.getMessage(), false));
         }
     }
 }
