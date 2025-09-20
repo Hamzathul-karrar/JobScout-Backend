@@ -1,8 +1,6 @@
 package com.hamza.JobScout.service;
-
 import com.hamza.JobScout.entity.JobResult;
 import com.hamza.JobScout.repository.JobResultRepository;
-
 import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -24,9 +22,10 @@ public class JobResultProcessor {
             String jobTitle, String location) {
         
         List<JobResult> allNewJobs = new ArrayList<>();
+        Set<String> processedLinks = new HashSet<>(); // Track links in current batch
         
         for (Map<String, Object> response : serpApiResponses) {
-            List<JobResult> pageResults = processResponse(response, jobTitle, location);
+            List<JobResult> pageResults = processResponse(response, jobTitle, location, processedLinks);
             allNewJobs.addAll(pageResults);
         }
         
@@ -39,7 +38,8 @@ public class JobResultProcessor {
         return allNewJobs;
     }
     
-    private List<JobResult> processResponse(Map<String, Object> response, String jobTitle, String location) {
+    private List<JobResult> processResponse(Map<String, Object> response, String jobTitle, 
+            String location, Set<String> processedLinks) {
         List<JobResult> newJobs = new ArrayList<>();
         
         if (response == null || !response.containsKey("organic_results")) {
@@ -56,7 +56,11 @@ public class JobResultProcessor {
         for (Map<String, Object> item : organicResults) {
             try {
                 JobResult job = parseJobResult(item, jobTitle, location);
-                if (job != null && !jobResultRepository.existsByLink(job.getLink())) {
+                if (job != null && 
+                    !jobResultRepository.existsByLink(job.getLink()) && 
+                    !processedLinks.contains(job.getLink())) { // Check batch duplicates
+                    
+                    processedLinks.add(job.getLink()); // Mark as processed
                     newJobs.add(job);
                 }
             } catch (Exception e) {

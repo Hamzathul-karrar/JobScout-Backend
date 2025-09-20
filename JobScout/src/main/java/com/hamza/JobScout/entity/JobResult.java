@@ -1,6 +1,8 @@
 package com.hamza.JobScout.entity;
 
 import java.time.LocalDate;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,6 +20,8 @@ public class JobResult {
     private String company;     // Job title from API
     private String title;       // Company domain / Source
     private String description; // Snippet
+    
+    @Column(unique = true, nullable = false)
     private String link;        // Job URL
 
     private LocalDate postedDate;  // From SerpAPI result

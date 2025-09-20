@@ -14,7 +14,8 @@ public class SerpApiService {
     @Value("${serpapi.api.key}")
     private String API_KEY;
     
-    private final int MAX_PAGES = 1;
+    @Value("${serapi.max.page}")
+    private int MAX_PAGES;
     
     public List<Map<String, Object>> searchJobs(String jobTitle, String location, String timeFilter) {
         List<Map<String, Object>> allResponses = new ArrayList<>();
