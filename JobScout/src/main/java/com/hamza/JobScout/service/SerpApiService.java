@@ -1,9 +1,16 @@
+// Enhanced SerpApiService.java
 package com.hamza.JobScout.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import com.hamza.JobScout.exception.ApiKeyException;
+import com.hamza.JobScout.exception.ApiLimitExceededException;
+import com.hamza.JobScout.exception.SerpApiException;
 import java.util.*;
 
 @Service
@@ -11,19 +18,19 @@ public class SerpApiService {
     
     private final RestTemplate restTemplate = new RestTemplate();
     
-    @Value("${serpapi.api.key}")
-    private String API_KEY;
+    @Autowired
+    private UserService userService;
     
     @Value("${serapi.max.page}")
     private int MAX_PAGES;
     
-    public List<Map<String, Object>> searchJobs(String jobTitle, String location, String timeFilter) {
+    public List<Map<String, Object>> searchJobs(String jobTitle, String location, String timeFilter, Long userId) {
         List<Map<String, Object>> allResponses = new ArrayList<>();
-        return searchJobsWithPagination(jobTitle, location, timeFilter, 1, allResponses);
+        return searchJobsWithPagination(jobTitle, location, timeFilter, 1, allResponses, userId);
     }
     
-    private List<Map<String, Object>> searchJobsWithPagination(String jobTitle, String location, 
-            String timeFilter, int currentPage, List<Map<String, Object>> allResponses) {
+    private List<Map<String, Object>> searchJobsWithPagination(String jobTitle, String location,
+            String timeFilter, int currentPage, List<Map<String, Object>> allResponses, Long userId) {
         
         System.out.println("Fetching SerpAPI page " + currentPage + " of max " + MAX_PAGES);
         
@@ -33,10 +40,24 @@ public class SerpApiService {
         }
         
         try {
-            String url = buildSearchUrl(jobTitle, location, timeFilter, currentPage);
+            // Get API key from database for the current user
+            String apiKey = userService.getApiKeyForUser(userId);
+            
+            // Validate API key exists
+            if (apiKey == null || apiKey.trim().isEmpty()) {
+                throw new ApiKeyException(
+                    "User API key is missing", 
+                    "Please configure your SERP API key in your profile settings"
+                );
+            }
+            
+            String url = buildSearchUrl(jobTitle, location, timeFilter, currentPage, apiKey);
             
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            
+            // Check for SERP API specific errors
+            validateSerpApiResponse(response);
             
             if (response != null) {
                 allResponses.add(response);
@@ -49,34 +70,152 @@ public class SerpApiService {
                 
                 // Continue pagination if next page exists
                 if (hasNextPage(response) && currentPage < MAX_PAGES) {
-                    return searchJobsWithPagination(jobTitle, location, timeFilter, 
-                        currentPage + 1, allResponses);
+                    return searchJobsWithPagination(jobTitle, location, timeFilter,
+                            currentPage + 1, allResponses, userId);
                 }
             }
             
             return allResponses;
             
+        } catch (HttpClientErrorException e) {
+            handleHttpClientError(e, currentPage);
+            return allResponses;
+        } catch (HttpServerErrorException e) {
+            System.err.println("SERP API server error on page " + currentPage + ": " + e.getMessage());
+            throw new SerpApiException(
+                "SERP API server error: " + e.getMessage(),
+                "SERVER_ERROR", 
+                "The search service is temporarily unavailable. Please try again later."
+            );
         } catch (RestClientException e) {
             System.err.println("Error calling SerpAPI on page " + currentPage + ": " + e.getMessage());
-            return allResponses;
+            throw new SerpApiException(
+                "Network error: " + e.getMessage(),
+                "NETWORK_ERROR",
+                "Unable to connect to search service. Please check your internet connection and try again."
+            );
+        } catch (SerpApiException e) {
+            // Re-throw custom exceptions
+            throw e;
         } catch (Exception e) {
             System.err.println("Unexpected error on page " + currentPage + ": " + e.getMessage());
-            return allResponses;
+            throw new SerpApiException(
+                "Unexpected error: " + e.getMessage(),
+                "UNEXPECTED_ERROR",
+                "An unexpected error occurred while searching for jobs. Please try again."
+            );
         }
     }
     
-    private String buildSearchUrl(String jobTitle, String location, String timeFilter, int page) {
-        String query = jobTitle + " " + location + "\" site:*/careers "
-                + "-site:naukri.com -site:indeed.com -site:monsterindia.com -site:shine.com "
-                + "-site:timesjobs.com -site:glassdoor.co.in -site:linkedin.com -site:freshersworld.com "
-                + "-site:hirist.com -site:foundit.in -site:simplyhired.co.in -site:internshala.com "
-                + "-site:elitmus.com -site:placementindia.com -site:apna.co -site:way2fresher.com "
-                + "-site:jumpwhere.com -site:in.prosple.com";
+    private void validateSerpApiResponse(Map<String, Object> response) {
+        if (response == null) {
+            throw new SerpApiException(
+                "Empty response from SERP API",
+                "API_ERROR", 
+                "Search service returned empty response. Please try again."
+            );
+        }
         
-        String baseUrl = "https://serpapi.com/search.json?engine=google" 
-                + "&q=" + query 
-                + "&tbs=" + timeFilter 
-                + "&api_key=" + API_KEY;
+        // Check for error in response
+        Object error = response.get("error");
+        if (error != null) {
+            String errorMessage = error.toString();
+            System.err.println("SERP API Error: " + errorMessage);
+            
+            // Handle specific SERP API errors
+            if (errorMessage.toLowerCase().contains("invalid api key") || 
+                errorMessage.toLowerCase().contains("api key") || 
+                errorMessage.toLowerCase().contains("authentication")) {
+                throw new ApiKeyException(
+                    "Invalid SERP API key: " + errorMessage,
+                    "Your SERP API key is invalid or expired. "
+                );
+            } else if (errorMessage.toLowerCase().contains("limit") || 
+                       errorMessage.toLowerCase().contains("quota") ||
+                       errorMessage.toLowerCase().contains("credit")) {
+                throw new ApiLimitExceededException(
+                    "SERP API limit exceeded: " + errorMessage,
+                    "You have reached your SERP API usage limit. Please check your SERP API account or upgrade your plan."
+                );
+            } else {
+                throw new SerpApiException(
+                    "SERP API error: " + errorMessage,
+                    "API_ERROR",
+                    "Search service error: " + errorMessage
+                );
+            }
+        }
+        
+        // Check for specific SERP API status indicators
+        Object searchMetadata = response.get("search_metadata");
+        if (searchMetadata instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> metadata = (Map<String, Object>) searchMetadata;
+            Object status = metadata.get("status");
+            
+            if ("Error".equals(status)) {
+                Object errorMsg = metadata.get("error_message");
+                String errorMessage = errorMsg != null ? errorMsg.toString() : "Unknown API error";
+                
+                if (errorMessage.toLowerCase().contains("api key")) {
+                    throw new ApiKeyException(
+                        "SERP API key error: " + errorMessage,
+                        "Your SERP API key is invalid. Please check and update your API key."
+                    );
+                } else {
+                    throw new SerpApiException(
+                        "SERP API status error: " + errorMessage,
+                        "API_ERROR",
+                        "Search failed: " + errorMessage
+                    );
+                }
+            }
+        }
+    }
+    
+    private void handleHttpClientError(HttpClientErrorException e, int currentPage) {
+        int statusCode = e.getStatusCode().value();
+        String responseBody = e.getResponseBodyAsString();
+        
+        System.err.println("HTTP " + statusCode + " error on page " + currentPage + ": " + responseBody);
+        
+        switch (statusCode) {
+            case 401:
+                throw new ApiKeyException(
+                    "Unauthorized SERP API request: " + responseBody,
+                    "Your SERP API key is invalid or expired."
+                );
+            case 403:
+                throw new ApiLimitExceededException(
+                    "SERP API access forbidden: " + responseBody,
+                    "Access to SERP API is forbidden. You may have exceeded your usage limit or your account may be suspended."
+                );
+            case 429:
+                throw new ApiLimitExceededException(
+                    "SERP API rate limit exceeded: " + responseBody,
+                    "You have made too many requests. Please wait a moment and try again."
+                );
+            default:
+                throw new SerpApiException(
+                    "SERP API HTTP error " + statusCode + ": " + responseBody,
+                    "HTTP_ERROR",
+                    "Search service returned error " + statusCode + ". Please try again."
+                );
+        }
+    }
+    
+    private String buildSearchUrl(String jobTitle, String location, String timeFilter, int page, String apiKey) {
+        String query = jobTitle + " " + location + "\" site:*/careers " +
+                "-site:naukri.com -site:indeed.com -site:monsterindia.com -site:shine.com " +
+                "-site:timesjobs.com -site:glassdoor.co.in -site:linkedin.com -site:freshersworld.com " +
+                "-site:hirist.com -site:foundit.in -site:simplyhired.co.in -site:internshala.com " +
+                "-site:elitmus.com -site:placementindia.com -site:apna.co -site:way2fresher.com " +
+                "-site:jumpwhere.com -site:in.prosple.com";
+        
+        String baseUrl = "https://serpapi.com/search.json?engine=google" +
+                "&q=" + query +
+                "&tbs=" + timeFilter +
+                "&api_key=" + apiKey;
         
         if (page > 1) {
             int startIndex = (page - 1) * 10;
