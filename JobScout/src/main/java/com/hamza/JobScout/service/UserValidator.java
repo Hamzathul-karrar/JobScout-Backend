@@ -1,6 +1,12 @@
 package com.hamza.JobScout.service;
 
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 public class UserValidator {
@@ -49,7 +55,43 @@ public class UserValidator {
     }
 
     /**
-     * Validate and sanitize SerpApi key
+     * Validate email format
+     */
+    private boolean isValidEmail(String email) {
+    	if (email == null || email.isEmpty()) {
+    		return false;
+    	}
+    	
+    	// Basic email validation
+    	return email.contains("@") && 
+    			email.contains(".") && 
+    			email.length() > 5 && 
+    			email.length() < 255 &&
+    			!email.startsWith("@") && 
+    			!email.endsWith("@") &&
+    			!email.startsWith(".") &&
+    			!email.endsWith(".") &&
+    			email.indexOf("@") != email.lastIndexOf("@") == false && // Only one @
+    			email.indexOf("@") < email.lastIndexOf("."); // @ comes before last .
+    }
+    
+    /**
+     * Validate password strength
+     */
+    private boolean isValidPassword(String password) {
+    	if (password == null || password.length() < 6) {
+    		return false;
+    	}
+    	
+    	boolean hasLetter = password.chars().anyMatch(Character::isLetter);
+    	boolean hasDigit = password.chars().anyMatch(Character::isDigit);
+    	
+    	return hasLetter && hasDigit;
+    }
+    
+    
+    /**
+     * sanitize SerpApi key
      */
     public String validateAndSanitizeSerpapiKey(String serpapiKey) {
         if (serpapiKey == null || serpapiKey.trim().isEmpty()) {
@@ -62,48 +104,58 @@ public class UserValidator {
             throw new IllegalArgumentException("SerpApi key appears to be invalid");
         }
         
-        // Check if it contains only valid characters (letters, numbers, underscores, hyphens)
-        if (!sanitized.matches("^[a-zA-Z0-9_-]+$")) {
-            throw new IllegalArgumentException("SerpApi key contains invalid characters");
+        boolean isValid = validateSerpApiKey(sanitized);
+        if (!isValid) {
+            throw new IllegalArgumentException("SerpApi key is not valid or has expired");
         }
         
         return sanitized;
     }
-
+    
+    
+    
     /**
-     * Validate email format
+     * Validate SerpApi key
      */
-    private boolean isValidEmail(String email) {
-        if (email == null || email.isEmpty()) {
+    public boolean validateSerpApiKey(String apiKey) {
+        String url = "https://serpapi.com/search.json?engine=google&q=serpapi&api_key=" + apiKey;
+        RestTemplate restTemplate = new RestTemplate();
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        try {
+            String response = restTemplate.getForObject(url, String.class);
+            JsonNode jsonNode = objectMapper.readTree(response);
+
+            // Check for error field indicating invalid key or other issues
+            if (jsonNode.has("error")) {
+                System.out.println("SerpApi error: " + jsonNode.get("error").asText());
+                return false;
+            }
+
+            // Check for presence of organic_results indicating a valid response
+            if (jsonNode.has("organic_results") && jsonNode.get("organic_results").isArray()) {
+                return true;
+            }
+
+            // If no organic_results and no error field, treat as invalid or unexpected
+            return false;
+
+        } catch (HttpClientErrorException e) {
+            // Handle HTTP errors like 401 Unauthorized
+            System.out.println("HTTP error status: " + e.getStatusCode());
+            return false;
+        } catch (ResourceAccessException e) {
+            // Handle connection errors
+            System.out.println("Resource access error: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            // Handle other exceptions like JSON parsing errors
+            System.out.println("Exception during validation: " + e.getMessage());
             return false;
         }
-        
-        // Basic email validation
-        return email.contains("@") && 
-               email.contains(".") && 
-               email.length() > 5 && 
-               email.length() < 255 &&
-               !email.startsWith("@") && 
-               !email.endsWith("@") &&
-               !email.startsWith(".") &&
-               !email.endsWith(".") &&
-               email.indexOf("@") != email.lastIndexOf("@") == false && // Only one @
-               email.indexOf("@") < email.lastIndexOf("."); // @ comes before last .
     }
 
-    /**
-     * Validate password strength
-     */
-    private boolean isValidPassword(String password) {
-        if (password == null || password.length() < 6) {
-            return false;
-        }
-        
-        boolean hasLetter = password.chars().anyMatch(Character::isLetter);
-        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
-        
-        return hasLetter && hasDigit;
-    }
+
 
     /**
      * Validate login email (simpler validation for login)
