@@ -4,16 +4,18 @@ public class AuthResponse {
     private Long userId;
     private String fullName;
     private String email;
+    private Integer apiCallCount;
     private String message;
     private String accessToken;
     private String refreshToken;
     private long expiresIn;
 
-    public AuthResponse(Long userId, String fullName, String email, String message, 
+    public AuthResponse(Long userId, String fullName, String email, Integer apiCallCount, String message, 
                        String accessToken, String refreshToken, long expiresIn) {
         this.userId = userId;
         this.fullName = fullName;
         this.email = email;
+        this.apiCallCount = apiCallCount;
         this.message = message;
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
@@ -41,4 +43,12 @@ public class AuthResponse {
     
     public long getExpiresIn() { return expiresIn; }
     public void setExpiresIn(long expiresIn) { this.expiresIn = expiresIn; }
+
+	public Integer getApiCallCount() {
+		return apiCallCount;
+	}
+
+	public void setApiCallCount(Integer apiCallCount) {
+		this.apiCallCount = apiCallCount;
+	}
 }

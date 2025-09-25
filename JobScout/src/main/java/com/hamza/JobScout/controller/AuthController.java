@@ -39,7 +39,7 @@ public class AuthController {
             return ResponseEntity.ok(authResponse);
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                    .body(new AuthResponse(null, null, null, e.getMessage(), null, null, 0));
+                    .body(new AuthResponse(null, null, null, null, e.getMessage(), null, null, 0));
         }
     }
 

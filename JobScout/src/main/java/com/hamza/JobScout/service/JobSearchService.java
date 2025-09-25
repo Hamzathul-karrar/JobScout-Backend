@@ -8,6 +8,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class JobSearchService {
@@ -15,6 +17,8 @@ public class JobSearchService {
     private final JobResultRepository jobResultRepository;
     private final SerpApiService serpApiService;
     private final JobResultProcessor jobResultProcessor;
+    private static final Logger logger = LoggerFactory.getLogger(JobSearchService.class);
+
 
     public JobSearchService(JobResultRepository jobResultRepository,
                            SerpApiService serpApiService,
@@ -28,7 +32,7 @@ public class JobSearchService {
     public List<JobResult> searchJobs(String jobTitle, String location, Long userId) {
         jobTitle = jobTitle.toLowerCase().trim();
         location = location.toLowerCase().trim();
-        System.out.println("Starting job search for: " + jobTitle + " in " + location);
+        logger.info("Starting job search for '{}' in '{}'", jobTitle, location);
 
         // Step 1: Query DB for existing jobs
         List<JobResult> existingJobs = jobResultRepository.findByJobTitleAndLocationOrderByAddedDateDesc(
@@ -38,12 +42,12 @@ public class JobSearchService {
         String timeFilter = determineTimeFilter(existingJobs);
         if (timeFilter == null) {
             // Jobs are fresh (from today), return existing jobs
-            System.out.println("Returning " + existingJobs.size() + " fresh jobs from database");
+            logger.info("Returning {} fresh jobs from database", existingJobs.size());
             return existingJobs;
         }
 
         // Step 3: Call SerpAPI with determined time filter and userId
-        System.out.println("Calling SerpAPI with time filter: " + timeFilter);
+        logger.info("Calling SerpAPI with time filter: {}", timeFilter);
         List<Map<String, Object>> serpApiResponses = serpApiService.searchJobs(jobTitle, location, timeFilter, userId);
 
         // Step 4: Process and save new jobs (deduplication handled in processor)
@@ -54,7 +58,7 @@ public class JobSearchService {
                 .sorted((job1, job2) -> job2.getAddedDate().compareTo(job1.getAddedDate())) // Sort desc
                 .collect(Collectors.toList());
 
-        System.out.println("Returning " + allJobs.size() + " total jobs (" + newJobs.size() + " new)");
+        logger.info("Returning {} total jobs ({} new)", allJobs.size(), newJobs.size());
         return allJobs;
     }
 
@@ -66,7 +70,7 @@ public class JobSearchService {
     private String determineTimeFilter(List<JobResult> existingJobs) {
         if (existingJobs.isEmpty()) {
             // No existing jobs, search for jobs from past week
-            System.out.println("No existing jobs found, searching past month");
+            logger.info("No existing jobs found, searching past month");
             return "qdr:m";
         }
 
@@ -75,7 +79,7 @@ public class JobSearchService {
         LocalDate today = LocalDate.now();
         long daysBetween = ChronoUnit.DAYS.between(mostRecentDate, today);
 
-        System.out.println("Most recent job was added " + daysBetween + " days ago");
+        logger.info("Most recent job was added {} days ago", daysBetween);
         if (daysBetween == 0) {
             // Jobs are from today, no need to call API
             return null;

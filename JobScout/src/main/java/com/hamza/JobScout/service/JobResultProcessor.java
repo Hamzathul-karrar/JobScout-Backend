@@ -8,11 +8,15 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class JobResultProcessor {
     
     private final JobResultRepository jobResultRepository;
+    private static final Logger logger = LoggerFactory.getLogger(JobResultProcessor.class);
+
     
     public JobResultProcessor(JobResultRepository jobResultRepository) {
         this.jobResultRepository = jobResultRepository;
@@ -32,7 +36,7 @@ public class JobResultProcessor {
         // Bulk save all new jobs at once
         if (!allNewJobs.isEmpty()) {
             jobResultRepository.saveAll(allNewJobs);
-            System.out.println("Saved " + allNewJobs.size() + " new jobs to database");
+            logger.info("Saved {} new jobs to database", allNewJobs.size());
         }
         
         return allNewJobs;
@@ -64,7 +68,7 @@ public class JobResultProcessor {
                     newJobs.add(job);
                 }
             } catch (Exception e) {
-                System.err.println("Error parsing individual result: " + e.getMessage());
+                logger.warn("Error parsing individual result: {}", e.getMessage());
             }
         }
         

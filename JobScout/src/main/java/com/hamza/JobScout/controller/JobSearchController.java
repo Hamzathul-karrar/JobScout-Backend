@@ -51,8 +51,9 @@ public class JobSearchController {
             
             List<JobResult> results = jobSearchService.searchJobs(jobTitle, location, currentUser.getId());
             
+            
             return ResponseEntity.ok(
-                ApiResponse.success(results, "Jobs retrieved successfully")
+                ApiResponse.success(results, "Jobs retrieved successfully", currentUser.getApiCallCount())
             );
             
         } catch (Exception e) {
