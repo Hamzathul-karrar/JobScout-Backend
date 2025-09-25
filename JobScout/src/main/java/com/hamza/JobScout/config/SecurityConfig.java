@@ -33,6 +33,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers("/health").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
